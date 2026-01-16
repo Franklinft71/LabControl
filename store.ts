@@ -1,13 +1,18 @@
 
 import { useState, useEffect } from 'react';
-import { Patient, Exam, Result, ResultWithDetails } from './types';
+import { Patient, Exam, Result, ResultWithDetails, User } from './types';
 
-// Initial Mock Data
 const INITIAL_EXAMS: Exam[] = [
   { id: 1, nombre_examen: 'Glucosa en Ayunas', rango_referencia: '70-100', unidad_medida: 'mg/dL', precio: 15.00 },
   { id: 2, nombre_examen: 'Colesterol Total', rango_referencia: '150-200', unidad_medida: 'mg/dL', precio: 20.00 },
   { id: 3, nombre_examen: 'Hemoglobina Glicosilada', rango_referencia: '4.0-5.6', unidad_medida: '%', precio: 35.00 },
   { id: 4, nombre_examen: 'Creatinina', rango_referencia: '0.7-1.3', unidad_medida: 'mg/dL', precio: 18.00 },
+];
+
+const INITIAL_USERS: User[] = [
+  { id: 1, nombre: 'Admin', apellido: 'Principal', email: 'admin@lab.com', rol: 'admin', estado: 'activo', fecha_ingreso: '2023-01-01' },
+  { id: 2, nombre: 'Carlos', apellido: 'Méndez', email: 'carlos@lab.com', rol: 'tecnico', estado: 'activo', fecha_ingreso: '2023-05-12' },
+  { id: 3, nombre: 'Lucía', apellido: 'Rojas', email: 'lucia@lab.com', rol: 'recepcionista', estado: 'activo', fecha_ingreso: '2023-08-20' },
 ];
 
 export const useLabData = () => {
@@ -17,6 +22,11 @@ export const useLabData = () => {
       { id: 1, nombre: 'Juan', apellido: 'Pérez', fecha_nacimiento: '1985-05-15', genero: 'M', telefono: '555-0101', fecha_registro: new Date().toISOString() },
       { id: 2, nombre: 'María', apellido: 'García', fecha_nacimiento: '1992-08-22', genero: 'F', telefono: '555-0202', fecha_registro: new Date().toISOString() }
     ];
+  });
+
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('lab_users');
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
 
   const [exams] = useState<Exam[]>(INITIAL_EXAMS);
@@ -33,6 +43,10 @@ export const useLabData = () => {
   }, [patients]);
 
   useEffect(() => {
+    localStorage.setItem('lab_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
     localStorage.setItem('lab_results', JSON.stringify(results));
   }, [results]);
 
@@ -44,6 +58,20 @@ export const useLabData = () => {
     };
     setPatients([...patients, newPatient]);
     return newPatient;
+  };
+
+  const addUser = (u: Omit<User, 'id' | 'fecha_ingreso'>) => {
+    const newUser: User = {
+      ...u,
+      id: users.length > 0 ? Math.max(...users.map(x => x.id)) + 1 : 1,
+      fecha_ingreso: new Date().toISOString().split('T')[0]
+    };
+    setUsers([...users, newUser]);
+    return newUser;
+  };
+
+  const toggleUserStatus = (id: number) => {
+    setUsers(users.map(u => u.id === id ? { ...u, estado: u.estado === 'activo' ? 'inactivo' : 'activo' } : u));
   };
 
   const addResult = (r: Omit<Result, 'id' | 'fecha_registro'>) => {
@@ -73,9 +101,12 @@ export const useLabData = () => {
 
   return {
     patients,
+    users,
     exams,
     results,
     addPatient,
+    addUser,
+    toggleUserStatus,
     addResult,
     getResultsWithDetails
   };

@@ -1,11 +1,17 @@
 
 export type Gender = 'M' | 'F';
+export type UserRole = 'admin' | 'tecnico' | 'recepcionista';
+export type UserStatus = 'activo' | 'inactivo';
 
 export interface User {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
-  rol: 'admin' | 'tecnico';
+  rol: UserRole;
+  estado: UserStatus;
+  fecha_ingreso: string;
+  telefono?: string;
 }
 
 export interface Patient {

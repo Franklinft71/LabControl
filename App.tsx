@@ -14,10 +14,13 @@ import {
   TrendingUp,
   BrainCircuit,
   Printer,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  UserPlus,
+  CircleDot
 } from 'lucide-react';
 import { useLabData } from './store';
-import { Patient, Exam, ResultWithDetails, Gender } from './types';
+import { Patient, Exam, ResultWithDetails, Gender, UserRole, UserStatus } from './types';
 import { analyzeResult } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -108,16 +111,18 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; chi
 // --- Main App Content ---
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'patients' | 'results'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'patients' | 'results' | 'users'>('dashboard');
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedResult, setSelectedResult] = useState<ResultWithDetails | null>(null);
   const [aiInterpretation, setAiInterpretation] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
 
-  const { patients, exams, addPatient, addResult, getResultsWithDetails } = useLabData();
+  const { patients, exams, users, addPatient, addUser, toggleUserStatus, addResult, getResultsWithDetails } = useLabData();
 
   if (!isLoggedIn) return <LoginView onLogin={() => setIsLoggedIn(true)} />;
 
@@ -127,13 +132,14 @@ export default function App() {
     `${p.nombre} ${p.apellido}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredUsers = users.filter(u => 
+    `${u.nombre} ${u.apellido} ${u.email}`.toLowerCase().includes(userSearchTerm.toLowerCase())
+  );
+
   const stats = [
     { label: 'Pacientes Totales', value: patients.length, icon: Users, color: 'bg-blue-500' },
     { label: 'Resultados Registrados', value: resultsWithDetails.length, icon: ClipboardList, color: 'bg-emerald-500' },
-    { label: 'Ingresos Estimados', value: `$${resultsWithDetails.reduce((acc, curr) => {
-        const ex = exams.find(e => e.id === curr.examen_id);
-        return acc + (ex?.precio || 0);
-    }, 0).toFixed(2)}`, icon: TrendingUp, color: 'bg-indigo-500' },
+    { label: 'Personal Activo', value: users.filter(u => u.estado === 'activo').length, icon: ShieldCheck, color: 'bg-indigo-500' },
     { label: 'Catálogo Exámenes', value: exams.length, icon: FlaskConical, color: 'bg-purple-500' },
   ];
 
@@ -148,6 +154,20 @@ export default function App() {
       telefono: formData.get('telefono') as string,
     });
     setIsPatientModalOpen(false);
+  };
+
+  const handleAddUser = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    addUser({
+      nombre: formData.get('nombre') as string,
+      apellido: formData.get('apellido') as string,
+      email: formData.get('email') as string,
+      rol: formData.get('rol') as UserRole,
+      estado: 'activo',
+      telefono: formData.get('telefono') as string,
+    });
+    setIsUserModalOpen(false);
   };
 
   const handleAddResult = (e: React.FormEvent<HTMLFormElement>) => {
@@ -218,6 +238,12 @@ export default function App() {
           >
             <ClipboardList className="w-5 h-5" /> Resultados
           </button>
+          <button 
+            onClick={() => setActiveTab('users')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'users' ? 'bg-indigo-50 text-indigo-600 font-semibold' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            <ShieldCheck className="w-5 h-5" /> Personal / Usuarios
+          </button>
         </nav>
 
         <div className="p-4 border-t border-slate-100">
@@ -234,7 +260,12 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10 no-print">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-slate-800 capitalize">{activeTab === 'dashboard' ? 'Panel de Control' : activeTab === 'patients' ? 'Gestión de Pacientes' : 'Registro de Resultados'}</h1>
+            <h1 className="text-2xl font-bold text-slate-800 capitalize">
+                {activeTab === 'dashboard' ? 'Panel de Control' : 
+                 activeTab === 'patients' ? 'Gestión de Pacientes' : 
+                 activeTab === 'users' ? 'Gestión de Personal' : 
+                 'Registro de Resultados'}
+            </h1>
           </div>
           <div className="flex items-center gap-3">
              <div className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
@@ -295,11 +326,11 @@ export default function App() {
                       <PlusCircle className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                     <button 
-                      onClick={() => setIsResultModalOpen(true)}
-                      className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 rounded-xl transition-all border border-slate-100 font-semibold group"
+                      onClick={() => setIsUserModalOpen(true)}
+                      className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-600 rounded-xl transition-all border border-slate-100 font-semibold group"
                     >
                       <div className="flex items-center gap-3">
-                        <ClipboardList className="w-5 h-5" /> Registrar Resultado
+                        <UserPlus className="w-5 h-5" /> Nuevo Trabajador
                       </div>
                       <PlusCircle className="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -365,6 +396,79 @@ export default function App() {
                           <td className="px-6 py-4 text-sm text-slate-500">{p.telefono}</td>
                           <td className="px-6 py-4 text-sm">
                              <button className="text-indigo-600 hover:text-indigo-800 font-bold transition-all underline decoration-2 underline-offset-4">Ver Historial</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-500">
+               <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <div className="relative w-full sm:w-96">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar por nombre o email..."
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                      value={userSearchTerm}
+                      onChange={e => setUserSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setIsUserModalOpen(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 font-bold shadow-lg shadow-violet-100 transition-all"
+                  >
+                    <UserPlus className="w-4 h-4" /> Agregar Personal
+                  </button>
+               </div>
+               <div className="overflow-x-auto">
+                 <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Trabajador</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Rol</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ingreso</th>
+                        <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredUsers.map(u => (
+                        <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 text-sm text-slate-700 font-bold">{u.nombre} {u.apellido}</td>
+                          <td className="px-6 py-4 text-sm text-slate-500">{u.email}</td>
+                          <td className="px-6 py-4 text-sm">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                u.rol === 'admin' ? 'bg-indigo-100 text-indigo-700' : 
+                                u.rol === 'tecnico' ? 'bg-emerald-100 text-emerald-700' : 
+                                'bg-amber-100 text-amber-700'
+                            }`}>
+                                {u.rol.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                             <div className="flex items-center gap-2">
+                                <CircleDot className={`w-3 h-3 ${u.estado === 'activo' ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                <span className={`text-xs font-semibold ${u.estado === 'activo' ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                    {u.estado.toUpperCase()}
+                                </span>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-400">{u.fecha_ingreso}</td>
+                          <td className="px-6 py-4 text-sm">
+                             <button 
+                                onClick={() => toggleUserStatus(u.id)}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                                    u.estado === 'activo' ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                                }`}
+                             >
+                                {u.estado === 'activo' ? 'Desactivar' : 'Activar'}
+                             </button>
                           </td>
                         </tr>
                       ))}
@@ -470,6 +574,42 @@ export default function App() {
             </div>
             <div className="pt-4">
                 <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition-all">Guardar Paciente</button>
+            </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Nuevo Trabajador">
+        <form onSubmit={handleAddUser} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Nombre</label>
+                    <input name="nombre" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Apellido</label>
+                    <input name="apellido" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Email Corporativo</label>
+                <input name="email" type="email" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg" placeholder="usuario@lab.com" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Rol / Cargo</label>
+                    <select name="rol" required className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                        <option value="tecnico">Técnico de Laboratorio</option>
+                        <option value="recepcionista">Recepcionista</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">Teléfono</label>
+                    <input name="telefono" className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg" placeholder="555-0000" />
+                </div>
+            </div>
+            <div className="pt-4">
+                <button type="submit" className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl hover:bg-violet-700 transition-all">Registrar Personal</button>
             </div>
         </form>
       </Modal>
