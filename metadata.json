@@ -1,0 +1,7 @@
+{
+  "name": "LabControl Pro - Sistema de Laboratorio Clínico",
+  "description": "Un sistema integral de gestión para laboratorios clínicos con dashboard, gestión de pacientes, registro de resultados con rangos de referencia y asistente de interpretación médica impulsado por IA.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
